@@ -58,10 +58,11 @@ func (e *evaluateHandler) EvaluateFile(w http.ResponseWriter, r *http.Request) {
 		w.Write(respJson)
 	}
 
-	resp := map[string]interface{}{
+	data := map[string]interface{}{
 		"job_id": jobId,
 		"status": jobItem.Status,
 	}
+	resp := models.CreateWebResponse("Success", http.StatusOK, data)
 	b, _ := json.Marshal(resp)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(202)

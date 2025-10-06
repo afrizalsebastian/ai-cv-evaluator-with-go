@@ -6,6 +6,7 @@ import (
 
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/models"
 	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type ChromaNotFoundRecord struct {
@@ -29,6 +30,7 @@ type chromaClient struct {
 func NewChromaClient(ctx context.Context, chromaUrl string) (IChromaClient, error) {
 	client, err := chroma.NewHTTPClient(
 		chroma.WithBaseURL(chromaUrl),
+		chroma.WithDatabaseAndTenant(chroma.DefaultDatabase, chroma.DefaultTenant),
 	)
 
 	if err != nil {
@@ -39,15 +41,9 @@ func NewChromaClient(ctx context.Context, chromaUrl string) (IChromaClient, erro
 }
 
 func (c *chromaClient) Upsert(ctx context.Context, collectionName, id, content string, metadata map[string]interface{}) error {
-	collection, err := c.cli.GetCollection(ctx, collectionName)
+	collection, err := c.cli.GetOrCreateCollection(ctx, collectionName, chroma.WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 	if err != nil {
-		collection, err = c.cli.CreateCollection(
-			ctx,
-			collectionName,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create collection: %w", err)
-		}
+		return fmt.Errorf("failed to create collection: %w", err)
 	}
 
 	var metaAttributes []*chroma.MetaAttribute

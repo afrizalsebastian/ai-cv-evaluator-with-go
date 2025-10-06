@@ -58,7 +58,7 @@ func main() {
 	}
 	chromaClient, err := chromaclient.NewChromaClient(ctx, chromaURL)
 	if err != nil {
-		log.Fatal("failed to init chroma client")
+		log.Fatalf("failed to init chroma client, %s", err.Error())
 	}
 
 	// worker
@@ -68,9 +68,10 @@ func main() {
 	uploadHandler := handlers.NewUploadHandler(fileStore)
 	evaluateHandler := handlers.NewEvaluateHandler(aiWorker, jobStore)
 	resultHandler := handlers.NewResultHandler(jobStore)
+	chromaHandler := handlers.NewChromaHandler(chromaClient)
 
 	// router
-	r := router.NewRouter(uploadHandler, evaluateHandler, resultHandler)
+	r := router.NewRouter(uploadHandler, evaluateHandler, resultHandler, chromaHandler)
 
 	// start worker
 	go aiWorker.Start(ctx)
