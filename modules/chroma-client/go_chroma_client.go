@@ -1,0 +1,116 @@
+package chromaclient
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/models"
+	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+
+type ChromaNotFoundRecord struct {
+	Query          string
+	CollectionName string
+}
+
+func (c *ChromaNotFoundRecord) Error() string {
+	return fmt.Sprintf("Not Found record at %s with query %s", c.CollectionName, c.Query)
+}
+
+type IChromaClient interface {
+	Upsert(ctx context.Context, collectionName, id, content string, metadata map[string]interface{}) error
+	Query(ctx context.Context, collectionName, query string, topK int) ([]models.ChromaSearchResult, error)
+}
+
+type chromaClient struct {
+	cli chroma.Client
+}
+
+func NewChromaClient(ctx context.Context, chromaUrl string) (IChromaClient, error) {
+	client, err := chroma.NewHTTPClient(
+		chroma.WithBaseURL(chromaUrl),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &chromaClient{cli: client}, nil
+}
+
+func (c *chromaClient) Upsert(ctx context.Context, collectionName, id, content string, metadata map[string]interface{}) error {
+	collection, err := c.cli.GetCollection(ctx, collectionName)
+	if err != nil {
+		collection, err = c.cli.CreateCollection(
+			ctx,
+			collectionName,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create collection: %w", err)
+		}
+	}
+
+	var metaAttributes []*chroma.MetaAttribute
+	for k, v := range metadata {
+		switch val := v.(type) {
+		case string:
+			metaAttributes = append(metaAttributes, chroma.NewStringAttribute(k, val))
+		case int:
+			metaAttributes = append(metaAttributes, chroma.NewIntAttribute(k, int64(val)))
+		case float64:
+			metaAttributes = append(metaAttributes, chroma.NewFloatAttribute(k, val))
+		default:
+			fmt.Printf("Warning: Unsupported metadata type for key '%s'\n", k)
+		}
+	}
+
+	if err := collection.Upsert(ctx,
+		chroma.WithIDs(chroma.DocumentID(id)),
+		chroma.WithTexts(content),
+		chroma.WithMetadatas(chroma.NewDocumentMetadata(metaAttributes...))); err != nil {
+		return fmt.Errorf("failed to upsert document: %w", err)
+	}
+
+	return nil
+}
+
+func (c *chromaClient) Query(ctx context.Context, collectionName, query string, topK int) ([]models.ChromaSearchResult, error) {
+	collection, err := c.cli.GetCollection(ctx, collectionName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get collection: %w", err)
+	}
+
+	resp, err := collection.Query(ctx,
+		chroma.WithQueryTexts(query),
+		chroma.WithNResults(topK),
+		chroma.WithIncludeQuery(chroma.IncludeDocuments, chroma.IncludeMetadatas),
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to query collection: %w", err)
+	}
+
+	if resp == nil || len(resp.GetIDGroups()) == 0 || len(resp.GetIDGroups()[0]) == 0 {
+		return nil, &ChromaNotFoundRecord{CollectionName: collectionName, Query: query}
+	}
+
+	var results []models.ChromaSearchResult
+	idGroup := resp.GetIDGroups()[0]
+	docsGroup := resp.GetDocumentsGroups()[0]
+	distancesGroup := resp.GetDistancesGroups()[0]
+
+	for i, id := range idGroup {
+		result := models.ChromaSearchResult{
+			Id:   string(id),
+			Text: docsGroup[i].ContentString(),
+		}
+
+		if len(distancesGroup) > i {
+			result.Score = float32(distancesGroup[i])
+		}
+
+		results = append(results, result)
+	}
+
+	return results, nil
+}
