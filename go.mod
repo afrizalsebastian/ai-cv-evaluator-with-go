@@ -26,6 +26,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/yalue/onnxruntime_go v1.19.0 // indirect
