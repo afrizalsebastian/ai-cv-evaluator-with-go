@@ -18,9 +18,9 @@ type JobItem struct {
 }
 
 type JobResult struct {
-	CvMatchRate     float64 `json:"cv_match_rate"`
-	CvFeedback      string  `json:"cv_feedback"`
-	ProjectScore    float64 `json:"project_score"`
-	ProjectFeedback string  `json:"project_feedback"`
-	OverallSummary  string  `json:"overall_summary"`
+	CvMatchRate     string `json:"cv_match_rate"`
+	CvFeedback      string `json:"cv_feedback"`
+	ProjectScore    string `json:"project_score"`
+	ProjectFeedback string `json:"project_feedback"`
+	OverallSummary  string `json:"overall_summary"`
 }

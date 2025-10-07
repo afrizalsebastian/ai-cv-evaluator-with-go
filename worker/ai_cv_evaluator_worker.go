@@ -107,55 +107,100 @@ func (w *cvEvaluatorWorker) processJob(ctx context.Context, job *models.JobItem)
 		return
 	}
 
-	_, err = w.ingest.ExtractTextFromPdf(path.Join("uploaded-file", job.FileId, "report_file.pdf"))
+	extractedReport, err := w.ingest.ExtractTextFromPdf(path.Join("uploaded-file", job.FileId, "report_file.pdf"))
 	if err != nil {
 		w.jobFailToProcess(job, err)
 		return
 	}
 
-	jobDescription, err := w.chroma.Query(ctx, "job_description", job.JobTitle+" "+"job description", 5)
-	if err != nil {
-		w.jobFailToProcess(job, err)
-		return
+	var evaluateWg sync.WaitGroup
+	errChan := make(chan error, 2)
+
+	evaluateWg.Add(2)
+
+	// Evaluate CV
+	go func() {
+		defer evaluateWg.Done()
+		jobDescription, err := w.chroma.Query(ctx, "job_description", job.JobTitle+" "+"job description", 5)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		cvRubric, err := w.chroma.Query(ctx, "cv_rubric", job.JobTitle+" "+"cv rubric", 5)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		cvEvaluatePrompt := w.buildCvEvaluatorPrompt(job.JobTitle, extractedCv, jobDescription, cvRubric)
+		cvGeminiResp, err := w.gemini.GenerateContent(ctx, job.JobTitle, cvEvaluatePrompt)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		cvResult := strings.Split(cvGeminiResp, "\n---\n")
+		if len(cvResult) < 2 {
+			errChan <- fmt.Errorf("invalid response from gemini")
+			return
+		}
+		job.Result.CvMatchRate = cvResult[0]
+		job.Result.CvFeedback = cvResult[1]
+		fmt.Println("job with id " + job.Id + " have done processed cv")
+	}()
+
+	// Evaluate Report
+	go func() {
+		defer evaluateWg.Done()
+
+		caseStudyBrief, err := w.chroma.Query(ctx, "case_study_brief", job.JobTitle+" "+"case study brief", 5)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		reportRubric, err := w.chroma.Query(ctx, "project_report_rubric", job.JobTitle+" "+"project report rubric", 5)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		reportEvaluatePrompt := w.buildReportEvaluatorPrompt(job.JobTitle, extractedReport, caseStudyBrief, reportRubric)
+		fmt.Println(reportEvaluatePrompt)
+		reportGeminiResp, err := w.gemini.GenerateContent(ctx, job.JobTitle, reportEvaluatePrompt)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		reportResult := strings.Split(reportGeminiResp, "\n---\n")
+		if len(reportResult) < 2 {
+			errChan <- fmt.Errorf("invalid response from gemini")
+			return
+		}
+		job.Result.ProjectScore = reportResult[0]
+		job.Result.ProjectFeedback = reportResult[1]
+		fmt.Println("job with id " + job.Id + " have done processed report")
+	}()
+
+	evaluateWg.Wait()
+	close(errChan)
+
+	for err := range errChan {
+		if err != nil {
+			w.jobFailToProcess(job, err)
+			return
+		}
 	}
-	cvRubric, err := w.chroma.Query(ctx, "cv_rubric", job.JobTitle+" "+"cv rubric", 5)
-	if err != nil {
-		w.jobFailToProcess(job, err)
-		return
-	}
 
-	cvEvaluatePrompt := w.buildCvEvaluatorPrompt(job.JobTitle, extractedCv, jobDescription, cvRubric)
-	cvGeminiResp, err := w.gemini.GenerateContent(ctx, job.JobTitle, cvEvaluatePrompt)
-	if err != nil {
-		w.jobFailToProcess(job, err)
-		return
-	}
-	cvResult := strings.Split(cvGeminiResp, "\n---\n")
-	fmt.Println(cvResult)
-
-	// caseStudyBrief, err := w.chroma.Query(ctx, "case_study_brief", job.JobTitle+" "+"case study brief", 5)
-	// if err != nil {
-	// 	w.jobFailToProcess(job, err)
-	// 	return
-	// }
-
-	// reportRubric, err := w.chroma.Query(ctx, "project_report_rubric", job.JobTitle+" "+"project report rubric", 5)
-	// if err != nil {
-	// 	w.jobFailToProcess(job, err)
-	// 	return
-	// }
-
-	//TODO: process job
 	job.Status = models.StatusCompleted
 }
 
 func (w *cvEvaluatorWorker) jobFailToProcess(job *models.JobItem, err error) {
-	fmt.Printf("job with id %s failed to prcess: %s\n", job.Id, err.Error())
+	fmt.Printf("job with id %s failed to process: %s\n", job.Id, err.Error())
 	job.Status = models.StatusFailed
 }
 
 func (w *cvEvaluatorWorker) buildCvEvaluatorPrompt(jobTitle, extractedCv string, jobDescription, cvRubric []models.ChromaSearchResult) string {
-	prompt := "Evaluate this CV for role: " + jobTitle + "\n\n"
+	prompt := "Evaluate this CV for role: " + jobTitle + "\n"
 	prompt += "Job Description: \n"
 	for _, desc := range jobDescription {
 		prompt += desc.Text
@@ -170,6 +215,26 @@ func (w *cvEvaluatorWorker) buildCvEvaluatorPrompt(jobTitle, extractedCv string,
 	prompt += "\n----\n"
 	prompt += "With Candidate CV: \n" + extractedCv
 	prompt += "\n-----\n"
-	prompt += "Return as:\nmatch_rate: <0.0-1.0>\n---\nfeedback: <brief feedback with 2-3 sentences>\n"
+	prompt += "Return as:\n<0.0-1.0 match rate>\n---\n<brief feedback with 2-3 sentences>\n"
+	return prompt
+}
+
+func (w *cvEvaluatorWorker) buildReportEvaluatorPrompt(jobTitle, extractedReport string, studyCase, reportRubric []models.ChromaSearchResult) string {
+	prompt := "Evaluate this Project report for role: " + jobTitle + "\n"
+	prompt += "Role study case: \n"
+	for _, desc := range studyCase {
+		prompt += desc.Text
+		prompt += "\n"
+	}
+	prompt += "\n-----\n"
+	prompt += "Projec Report Rubric: \n"
+	for _, rubric := range reportRubric {
+		prompt += rubric.Text
+		prompt += "\n"
+	}
+	prompt += "\n----\n"
+	prompt += "With Candidate Project Report: \n" + extractedReport
+	prompt += "\n-----\n"
+	prompt += "Return as:\n<0.0-5.0 project score>\n---\n<brief feedback with 2-3 sentences>\n"
 	return prompt
 }
