@@ -70,7 +70,7 @@ func main() {
 	uploadHandler := handlers.NewUploadHandler(fileStore)
 	evaluateHandler := handlers.NewEvaluateHandler(aiWorker, jobStore)
 	resultHandler := handlers.NewResultHandler(jobStore)
-	chromaHandler := handlers.NewChromaHandler(ingest)
+	chromaHandler := handlers.NewChromaHandler(chromaClient)
 
 	// router
 	r := router.NewRouter(uploadHandler, evaluateHandler, resultHandler, chromaHandler)

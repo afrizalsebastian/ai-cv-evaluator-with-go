@@ -30,7 +30,7 @@ func (g *geminiClient) GenerateContent(ctx context.Context, jobTitle, prompt str
 	temp := float32(0.9)
 	topP := float32(0.9)
 	topK := float32(40.0)
-	maxOutputToken := int32(1024)
+	maxOutputToken := int32(4096)
 
 	config := &genai.GenerateContentConfig{
 		TopP:              &topP,

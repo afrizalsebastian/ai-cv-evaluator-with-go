@@ -71,14 +71,16 @@ func (c *chromaClient) Upsert(ctx context.Context, collectionName, id, content s
 }
 
 func (c *chromaClient) Query(ctx context.Context, collectionName, query string, topK int) ([]models.ChromaSearchResult, error) {
-	collection, err := c.cli.GetCollection(ctx, collectionName)
+	embedding := embeddings.NewConsistentHashEmbeddingFunction()
+	collection, err := c.cli.GetCollection(ctx, collectionName, chroma.WithEmbeddingFunctionGet(embedding))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get collection: %w", err)
 	}
 
+	embeddingQuery, _ := embedding.EmbedQuery(ctx, query)
 	resp, err := collection.Query(ctx,
-		chroma.WithQueryTexts(query),
 		chroma.WithNResults(topK),
+		chroma.WithQueryEmbeddings(embeddingQuery),
 		chroma.WithIncludeQuery(chroma.IncludeDocuments, chroma.IncludeMetadatas),
 	)
 
@@ -93,16 +95,11 @@ func (c *chromaClient) Query(ctx context.Context, collectionName, query string, 
 	var results []models.ChromaSearchResult
 	idGroup := resp.GetIDGroups()[0]
 	docsGroup := resp.GetDocumentsGroups()[0]
-	distancesGroup := resp.GetDistancesGroups()[0]
 
 	for i, id := range idGroup {
 		result := models.ChromaSearchResult{
 			Id:   string(id),
 			Text: docsGroup[i].ContentString(),
-		}
-
-		if len(distancesGroup) > i {
-			result.Score = float32(distancesGroup[i])
 		}
 
 		results = append(results, result)
