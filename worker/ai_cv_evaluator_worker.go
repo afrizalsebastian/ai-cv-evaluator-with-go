@@ -165,7 +165,6 @@ func (w *cvEvaluatorWorker) processJob(ctx context.Context, job *models.JobItem)
 		}
 
 		reportEvaluatePrompt := w.buildReportEvaluatorPrompt(job.JobTitle, extractedReport, caseStudyBrief, reportRubric)
-		fmt.Println(reportEvaluatePrompt)
 		reportGeminiResp, err := w.gemini.GenerateContent(ctx, job.JobTitle, reportEvaluatePrompt)
 		if err != nil {
 			errChan <- err
@@ -191,6 +190,13 @@ func (w *cvEvaluatorWorker) processJob(ctx context.Context, job *models.JobItem)
 		}
 	}
 
+	finalPrompt := w.buildFinalPrompt(job.Result.CvMatchRate, job.Result.CvFeedback, job.Result.ProjectScore, job.Result.ProjectFeedback)
+	overall, err := w.gemini.GenerateContent(ctx, job.JobTitle, finalPrompt)
+	if err != nil {
+		w.jobFailToProcess(job, err)
+		return
+	}
+	job.Result.OverallSummary = overall
 	job.Status = models.StatusCompleted
 }
 
@@ -235,6 +241,17 @@ func (w *cvEvaluatorWorker) buildReportEvaluatorPrompt(jobTitle, extractedReport
 	prompt += "\n----\n"
 	prompt += "With Candidate Project Report: \n" + extractedReport
 	prompt += "\n-----\n"
-	prompt += "Return as:\n<0.0-5.0 project score>\n---\n<brief feedback with 2-3 sentences>\n"
+	prompt += "Return as:\n<1.0-5.0 project score>\n---\n<brief feedback with 2-3 sentences>\n"
+	return prompt
+}
+
+func (w *cvEvaluatorWorker) buildFinalPrompt(cvRate, cvFeedback, projScore, projFeedback string) string {
+	prompt := "Give 3-5 sentences summary based on:\n"
+	prompt += "CV match rate: " + cvRate + "\n"
+	prompt += "CV feedback: " + cvFeedback + "\n"
+	prompt += "Project score: " + projScore + "\n"
+	prompt += "Project feedback: " + projFeedback + "\n"
+	prompt += "\nOutput concise summary (strengths, gaps, recommendations, advice, and other positive thing to improvement)."
+	prompt += "Return as:\n<3-5 sentences for summary>"
 	return prompt
 }
