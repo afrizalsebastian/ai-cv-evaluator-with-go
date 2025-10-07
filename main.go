@@ -44,12 +44,6 @@ func main() {
 	ctx := context.Background()
 
 	// dependencies
-	// services
-	fileStore, err := services.NewLocalFileStore("./uploaded-file")
-	if err != nil {
-		log.Fatal("failed to init fileStore")
-	}
-	jobStore := services.NewJobStore()
 
 	// modules
 	geminiCient, err := geminiclient.NewGeminiAiCLient(ctx, geminiKey, geminiModel)
@@ -61,6 +55,14 @@ func main() {
 		log.Fatalf("failed to init chroma client, %s", err.Error())
 	}
 
+	// services
+	fileStore, err := services.NewLocalFileStore("./uploaded-file")
+	if err != nil {
+		log.Fatal("failed to init fileStore")
+	}
+	jobStore := services.NewJobStore()
+	ingest := services.NewIngestFile(chromaClient)
+
 	// worker
 	aiWorker := worker.NewCvEvaluatorWorker(fileStore, geminiCient, chromaClient, 5)
 
@@ -68,7 +70,7 @@ func main() {
 	uploadHandler := handlers.NewUploadHandler(fileStore)
 	evaluateHandler := handlers.NewEvaluateHandler(aiWorker, jobStore)
 	resultHandler := handlers.NewResultHandler(jobStore)
-	chromaHandler := handlers.NewChromaHandler(chromaClient)
+	chromaHandler := handlers.NewChromaHandler(ingest)
 
 	// router
 	r := router.NewRouter(uploadHandler, evaluateHandler, resultHandler, chromaHandler)

@@ -7,8 +7,8 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/application/services"
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/models"
-	chromaclient "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/chroma-client"
 )
 
 type IChromaHandler interface {
@@ -16,12 +16,12 @@ type IChromaHandler interface {
 }
 
 type chromaHandler struct {
-	chroma chromaclient.IChromaClient
+	ingest services.IIngestFile
 }
 
-func NewChromaHandler(chroma chromaclient.IChromaClient) IChromaHandler {
+func NewChromaHandler(ingest services.IIngestFile) IChromaHandler {
 	return &chromaHandler{
-		chroma: chroma,
+		ingest: ingest,
 	}
 }
 
@@ -39,7 +39,12 @@ func (c *chromaHandler) Upsert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := c.chroma.Upsert(ctx, requestBody.CollectionName, requestBody.ContentId, requestBody.Content, requestBody.Metadata); err != nil {
+	if err := c.ingest.IngestToChroma(ctx,
+		requestBody.CollectionName,
+		requestBody.ContentId,
+		requestBody.Content,
+		requestBody.Metadata,
+		services.WithDefaultIngestOptions()); err != nil {
 		fmt.Printf("error when upsert to chroma: %s", err.Error())
 		resp := models.CreateWebResponse(err.Error(), http.StatusInternalServerError, nil)
 		respJson, _ := json.Marshal(resp)
