@@ -14,4 +14,13 @@ type JobItem struct {
 	JobTitle string    `json:"job_title"`
 	FileId   string    `json:"file_id"`
 	Status   JobStatus `json:"status"`
+	Result   JobResult `json:"result"`
+}
+
+type JobResult struct {
+	CvMatchRate     float64 `json:"cv_match_rate"`
+	CvFeedback      string  `json:"cv_feedback"`
+	ProjectScore    float64 `json:"project_score"`
+	ProjectFeedback string  `json:"project_feedback"`
+	OverallSummary  string  `json:"overall_summary"`
 }

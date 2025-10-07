@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -72,7 +73,7 @@ func (i *ingestFile) ExtractTextFromPdf(path string) (string, error) {
 
 	for page := 1; page <= totalPage; page++ {
 		p := r.Page(page)
-		if p.V.IsNull() {
+		if p.V.IsNull() || p.V.Key("Contents").Kind() == pdf.Null {
 			continue
 		}
 
@@ -82,11 +83,16 @@ func (i *ingestFile) ExtractTextFromPdf(path string) (string, error) {
 			continue
 		}
 
-		sb.WriteString(content)
-		sb.WriteString("\n")
+		sb.WriteString(strings.TrimSpace(content))
+		sb.WriteString(" ")
 	}
 
-	return sb.String(), nil
+	text := sb.String()
+
+	space := regexp.MustCompile(`\s+`)
+	text = space.ReplaceAllString(text, " ")
+
+	return strings.TrimSpace(text), nil
 }
 
 func (i *ingestFile) ChunkText(text string, config ChunkingConfig) []string {

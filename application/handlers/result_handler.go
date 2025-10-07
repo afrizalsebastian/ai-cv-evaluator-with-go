@@ -39,8 +39,9 @@ func (e *resultHandler) GetResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonResult, _ := json.Marshal(job)
+	resp := models.CreateWebResponse("Success", http.StatusOK, job)
+	respJson, _ := json.Marshal(resp)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
-	w.Write(jsonResult)
+	w.Write(respJson)
 }

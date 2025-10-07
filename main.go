@@ -64,7 +64,7 @@ func main() {
 	ingest := services.NewIngestFile(chromaClient)
 
 	// worker
-	aiWorker := worker.NewCvEvaluatorWorker(fileStore, geminiCient, chromaClient, 5)
+	aiWorker := worker.NewCvEvaluatorWorker(fileStore, geminiCient, chromaClient, ingest, 5)
 
 	// handler
 	uploadHandler := handlers.NewUploadHandler(fileStore)

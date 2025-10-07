@@ -96,6 +96,7 @@ func (s *localFileStore) SaveUploadedFile(fileId string, file multipart.File, he
 func (s *localFileStore) Get(fileId string) (*models.UploadedFile, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	v, ok := s.meta[fileId]
 	if !ok {
 		return nil, ErrFileNotFound
