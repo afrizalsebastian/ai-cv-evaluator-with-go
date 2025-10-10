@@ -1,0 +1,60 @@
+openapi: 3.1.0
+info:
+  title: Go CV Evaluator with Gemini
+  version: 1.0.0
+servers:
+  - url: /api/v1
+
+paths:
+  /hello:
+    get:
+      summary: Endpoint Testing
+      responses:
+        "200":
+          description: Endpoint for Boilerplate
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # /upload:
+  #   post:
+  #     summary: Upload File
+  #     requestBody:
+  #       required: true
+  #       content:
+  #         mulipart/form-data:
+  #           schema:
+  #             $ref: "#/components/schemas/UploadBodyRequest"
+  #     responses:
+  #       "200":
+  #         description: Success upload File
+  #         content:
+  #           application/json:
+  #             schema:
+  #               $ref: "#/components/schemas/UploadResponse"
+
+components:
+  schemas:
+    UploadBodyRequest:
+      type: object
+      properties:
+        cv_file:
+          type: string
+          format: binary
+        report_file:
+          type: string
+          format: binary
+      required:
+        - cv_file
+        - report_file
+
+    UploadResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        status:
+          type: integer
+        data:
+          type: object

@@ -1,0 +1,74 @@
+package config
+
+import (
+	"errors"
+	"log"
+	"os"
+	"reflect"
+
+	"github.com/spf13/viper"
+)
+
+var (
+	ErrOsGetPwd            = errors.New("failed to get working directory")
+	ErrReadConfigFile      = errors.New("failed to read config file")
+	ErrUnmarshalConfigFile = errors.New("failed to read config file")
+)
+
+type Config struct {
+	AppPort      int64  `mapstructure:"PORT"`
+	GeminiApiKey string `mapstructure:"GEMINI_API_KEY"`
+	ChromaUrl    string `mapstructure:"CHROMA_URL"`
+	GeminiModel  string `mapstructure:"GEMINI_MODEl"`
+}
+
+var appConfig Config
+
+func Init() error {
+	v := viper.New()
+
+	v.SetConfigName(".env")
+	v.SetConfigType("env")
+	v.AutomaticEnv()
+
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Println("Failed to get working directory")
+
+		return ErrOsGetPwd
+	}
+	v.AddConfigPath(wd)
+
+	if err := v.ReadInConfig(); err != nil {
+		var errConfigFileNotFound viper.ConfigFileNotFoundError
+		if errors.As(err, &errConfigFileNotFound) {
+			log.Println("No .env file found")
+		} else {
+			log.Println("Failed to read .env file")
+			return ErrReadConfigFile
+		}
+	}
+
+	bindEnvs(v, &appConfig)
+
+	if err := v.Unmarshal(&appConfig); err != nil {
+		log.Println("error to unmarshal config file")
+		return ErrUnmarshalConfigFile
+	}
+
+	return nil
+
+}
+
+func bindEnvs(v *viper.Viper, config interface{}) {
+	cfgType := reflect.TypeOf(config).Elem()
+	for i := 0; i < cfgType.NumField(); i++ {
+		field := cfgType.Field(i)
+		envKey := field.Tag.Get("mapstructure")
+		if envKey != "" {
+			_ = v.BindEnv(envKey)
+		}
+	}
+}
+
+func Get() *Config { return &appConfig }
