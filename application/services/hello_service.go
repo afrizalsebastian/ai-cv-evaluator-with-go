@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/models"
+	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/api"
 )
 
 type IHelloService interface {
-	GetHello(context.Context) models.WebResponse
+	GetHello(context.Context) api.WebResponse
 }
 
 type helloService struct{}
@@ -18,7 +18,7 @@ func NewHelloService() IHelloService {
 	return &helloService{}
 }
 
-func (h *helloService) GetHello(ctx context.Context) models.WebResponse {
+func (h *helloService) GetHello(ctx context.Context) api.WebResponse {
 	fmt.Println("helloService.GetHello")
-	return *models.CreateWebResponse("success", http.StatusOK, nil)
+	return api.CreateWebResponse("success", http.StatusOK, nil, nil)
 }

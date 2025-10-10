@@ -1,20 +1,20 @@
 package handlers
 
 import (
-	"fmt"
-
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/application/controllers"
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/application/services"
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/bootstrap"
 )
 
 type CvEvaluatorServiceController struct {
-	Hello controllers.IHelloController
+	Hello          controllers.IHelloController
+	UploadDocument controllers.IUploadDocumentController
 }
 
 func initDI(app *bootstrap.Application) *CvEvaluatorServiceController {
 	init := &CvEvaluatorServiceController{
-		Hello: hello(app),
+		Hello:          hello(app),
+		UploadDocument: uploadDocument(app),
 	}
 
 	return init
@@ -23,6 +23,11 @@ func initDI(app *bootstrap.Application) *CvEvaluatorServiceController {
 func hello(_ *bootstrap.Application) controllers.IHelloController {
 	helloService := services.NewHelloService()
 	helloController := controllers.NewHelloController(helloService)
-	fmt.Println(helloController)
 	return helloController
+}
+
+func uploadDocument(_ *bootstrap.Application) controllers.IUploadDocumentController {
+	uploadDocumentService := services.NewUploadDocumentService("./uploaded-file")
+	uploadDocumentController := controllers.NewUploadDocumenController(uploadDocumentService)
+	return uploadDocumentController
 }

@@ -17,22 +17,22 @@ paths:
               schema:
                 type: object
 
-  # /upload:
-  #   post:
-  #     summary: Upload File
-  #     requestBody:
-  #       required: true
-  #       content:
-  #         mulipart/form-data:
-  #           schema:
-  #             $ref: "#/components/schemas/UploadBodyRequest"
-  #     responses:
-  #       "200":
-  #         description: Success upload File
-  #         content:
-  #           application/json:
-  #             schema:
-  #               $ref: "#/components/schemas/UploadResponse"
+  /upload:
+    post:
+      summary: Upload File
+      requestBody:
+        required: true
+        content:
+          mulipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadBodyRequest"
+      responses:
+        "200":
+          description: Success upload File
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
 
 components:
   schemas:

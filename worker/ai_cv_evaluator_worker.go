@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/application/services"
-	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/models"
+	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/models"
 	chromaclient "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/chroma-client"
 	geminiclient "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/gemini-client"
 )

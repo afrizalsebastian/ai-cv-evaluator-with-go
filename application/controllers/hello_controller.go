@@ -4,12 +4,12 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/api"
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/application/services"
-	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/models"
 )
 
 type IHelloController interface {
-	GetHello(context.Context, *http.Request) models.WebResponse
+	GetHello(context.Context, *http.Request) api.WebResponse
 }
 
 type helloController struct {
@@ -22,6 +22,6 @@ func NewHelloController(helloService services.IHelloService) IHelloController {
 	}
 }
 
-func (h *helloController) GetHello(ctx context.Context, r *http.Request) models.WebResponse {
+func (h *helloController) GetHello(ctx context.Context, r *http.Request) api.WebResponse {
 	return h.helloService.GetHello(ctx)
 }

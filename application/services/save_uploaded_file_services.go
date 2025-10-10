@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/models"
+	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/models"
 )
 
 var (

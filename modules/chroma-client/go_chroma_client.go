@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/models"
+	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/models"
 	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )

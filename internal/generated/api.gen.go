@@ -8,13 +8,30 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// UploadBodyRequest defines model for UploadBodyRequest.
+type UploadBodyRequest struct {
+	CvFile     openapi_types.File `json:"cv_file"`
+	ReportFile openapi_types.File `json:"report_file"`
+}
+
+// UploadResponse defines model for UploadResponse.
+type UploadResponse struct {
+	Data    *map[string]interface{} `json:"data,omitempty"`
+	Message *string                 `json:"message,omitempty"`
+	Status  *int                    `json:"status,omitempty"`
+}
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Endpoint Testing
 	// (GET /hello)
 	GetHello(w http.ResponseWriter, r *http.Request)
+	// Upload File
+	// (POST /upload)
+	PostUpload(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -32,6 +49,21 @@ func (siw *ServerInterfaceWrapper) GetHello(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHello(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// PostUpload operation middleware
+func (siw *ServerInterfaceWrapper) PostUpload(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostUpload(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -155,6 +187,8 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 	}
 
 	r.HandleFunc(options.BaseURL+"/hello", wrapper.GetHello).Methods("GET")
+
+	r.HandleFunc(options.BaseURL+"/upload", wrapper.PostUpload).Methods("POST")
 
 	return r
 }

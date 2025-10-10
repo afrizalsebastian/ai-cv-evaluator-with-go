@@ -8,7 +8,3 @@ type UploadedFile struct {
 	Filename string
 	Uploaded time.Time
 }
-
-type UploadedFileResponse struct {
-	FileId string `json:"file_id"`
-}

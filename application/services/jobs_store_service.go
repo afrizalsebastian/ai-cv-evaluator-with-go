@@ -3,7 +3,7 @@ package services
 import (
 	"sync"
 
-	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/models"
+	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/models"
 )
 
 type IJobStore interface {
