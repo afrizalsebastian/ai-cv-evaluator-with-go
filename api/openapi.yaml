@@ -34,6 +34,23 @@ paths:
               schema:
                 $ref: "#/components/schemas/UploadResponse"
 
+  /evaluate:
+    post:
+      summary: Evaluate the file that uploaded before
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvaluateBodyRequest"
+      responses:
+        "200":
+          description: Success to enqueue job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvaluateResponse"
+
 components:
   schemas:
     UploadBodyRequest:
@@ -58,3 +75,27 @@ components:
           type: integer
         data:
           type: object
+          properties:
+            file_id:
+              type: string
+
+    EvaluateBodyRequest:
+      type: object
+      properties:
+        job_title:
+          type: string
+        file_id:
+          type: string
+
+    EvaluateResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        status:
+          type: integer
+        data:
+          type: object
+          properties:
+            job_id:
+              type: string

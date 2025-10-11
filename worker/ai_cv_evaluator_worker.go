@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"path"
@@ -9,10 +10,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/application/services"
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/models"
 	chromaclient "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/chroma-client"
 	geminiclient "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/gemini-client"
+	ingestdocument "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/ingest-document"
+)
+
+var (
+	ErrQueueIsFull = errors.New("queue is full rigth now. please try again later")
 )
 
 type ICvEvaluatorWorker interface {
@@ -22,10 +27,9 @@ type ICvEvaluatorWorker interface {
 }
 
 type cvEvaluatorWorker struct {
-	fileStore services.ILocalFileStore
-	gemini    geminiclient.IGeminiClient
-	chroma    chromaclient.IChromaClient
-	ingest    services.IIngestFile
+	gemini geminiclient.IGeminiClient
+	chroma chromaclient.IChromaClient
+	ingest ingestdocument.IIngestFile
 
 	queue chan *models.JobItem
 	mu    sync.RWMutex
@@ -35,10 +39,9 @@ type cvEvaluatorWorker struct {
 }
 
 func NewCvEvaluatorWorker(
-	fileStore services.ILocalFileStore,
 	gemini geminiclient.IGeminiClient,
 	chroma chromaclient.IChromaClient,
-	ingest services.IIngestFile,
+	ingest ingestdocument.IIngestFile,
 	maxWorkers int,
 ) ICvEvaluatorWorker {
 	if maxWorkers <= 0 {
@@ -46,7 +49,6 @@ func NewCvEvaluatorWorker(
 	}
 
 	return &cvEvaluatorWorker{
-		fileStore:  fileStore,
 		gemini:     gemini,
 		chroma:     chroma,
 		ingest:     ingest,
@@ -68,7 +70,7 @@ func (w *cvEvaluatorWorker) Enqueue(job *models.JobItem) error {
 	case w.queue <- job:
 		return nil
 	case <-time.After(5 * time.Second):
-		return fmt.Errorf("queue full, timeout enqueueing job")
+		return ErrQueueIsFull
 	}
 }
 

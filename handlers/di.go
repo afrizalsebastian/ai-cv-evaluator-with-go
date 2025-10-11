@@ -9,12 +9,14 @@ import (
 type CvEvaluatorServiceController struct {
 	Hello          controllers.IHelloController
 	UploadDocument controllers.IUploadDocumentController
+	Evaluate       controllers.IEvaluateController
 }
 
 func initDI(app *bootstrap.Application) *CvEvaluatorServiceController {
 	init := &CvEvaluatorServiceController{
 		Hello:          hello(app),
 		UploadDocument: uploadDocument(app),
+		Evaluate:       evaluate(app),
 	}
 
 	return init
@@ -30,4 +32,10 @@ func uploadDocument(_ *bootstrap.Application) controllers.IUploadDocumentControl
 	uploadDocumentService := services.NewUploadDocumentService("./uploaded-file")
 	uploadDocumentController := controllers.NewUploadDocumenController(uploadDocumentService)
 	return uploadDocumentController
+}
+
+func evaluate(app *bootstrap.Application) controllers.IEvaluateController {
+	evaluateService := services.NewEvaluateServce(app.Worker, app.JobStore)
+	evaluateController := controllers.NewEvaluateController(evaluateService)
+	return evaluateController
 }

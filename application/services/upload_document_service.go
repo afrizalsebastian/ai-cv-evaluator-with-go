@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -13,6 +14,12 @@ import (
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/api"
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/models"
 	"github.com/google/uuid"
+)
+
+var (
+	ErrFileNotFound = errors.New("file not found")
+	ErrSaveFile     = errors.New("file error to save")
+	ErrDeleteFile   = errors.New("file failed to delete")
 )
 
 type IUploadDocumentService interface {

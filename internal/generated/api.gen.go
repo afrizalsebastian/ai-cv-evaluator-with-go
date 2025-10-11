@@ -11,6 +11,21 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// EvaluateBodyRequest defines model for EvaluateBodyRequest.
+type EvaluateBodyRequest struct {
+	FileId   *string `json:"file_id,omitempty"`
+	JobTitle *string `json:"job_title,omitempty"`
+}
+
+// EvaluateResponse defines model for EvaluateResponse.
+type EvaluateResponse struct {
+	Data *struct {
+		JobId *string `json:"job_id,omitempty"`
+	} `json:"data,omitempty"`
+	Message *string `json:"message,omitempty"`
+	Status  *int    `json:"status,omitempty"`
+}
+
 // UploadBodyRequest defines model for UploadBodyRequest.
 type UploadBodyRequest struct {
 	CvFile     openapi_types.File `json:"cv_file"`
@@ -19,13 +34,21 @@ type UploadBodyRequest struct {
 
 // UploadResponse defines model for UploadResponse.
 type UploadResponse struct {
-	Data    *map[string]interface{} `json:"data,omitempty"`
-	Message *string                 `json:"message,omitempty"`
-	Status  *int                    `json:"status,omitempty"`
+	Data *struct {
+		FileId *string `json:"file_id,omitempty"`
+	} `json:"data,omitempty"`
+	Message *string `json:"message,omitempty"`
+	Status  *int    `json:"status,omitempty"`
 }
+
+// PostEvaluateJSONRequestBody defines body for PostEvaluate for application/json ContentType.
+type PostEvaluateJSONRequestBody = EvaluateBodyRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Evaluate the file that uploaded before
+	// (POST /evaluate)
+	PostEvaluate(w http.ResponseWriter, r *http.Request)
 	// Endpoint Testing
 	// (GET /hello)
 	GetHello(w http.ResponseWriter, r *http.Request)
@@ -42,6 +65,21 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// PostEvaluate operation middleware
+func (siw *ServerInterfaceWrapper) PostEvaluate(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostEvaluate(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
 
 // GetHello operation middleware
 func (siw *ServerInterfaceWrapper) GetHello(w http.ResponseWriter, r *http.Request) {
@@ -185,6 +223,8 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 		HandlerMiddlewares: options.Middlewares,
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
+
+	r.HandleFunc(options.BaseURL+"/evaluate", wrapper.PostEvaluate).Methods("POST")
 
 	r.HandleFunc(options.BaseURL+"/hello", wrapper.GetHello).Methods("GET")
 
