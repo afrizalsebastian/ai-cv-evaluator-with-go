@@ -51,6 +51,23 @@ paths:
               schema:
                 $ref: "#/components/schemas/EvaluateResponse"
 
+  /result/{jobId}:
+    get:
+      summary: Get the job result
+      parameters:
+        - in: path
+          name: jobId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success to get result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResultResponse"
+
 components:
   schemas:
     UploadBodyRequest:
@@ -99,3 +116,35 @@ components:
           properties:
             job_id:
               type: string
+
+    ResultResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        status:
+          type: integer
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            job_title:
+              type: string
+            file_id:
+              type: string
+            status:
+              type: string
+            result:
+              type: object
+              properties:
+                cv_match_rate:
+                  type: string
+                cv_feedback:
+                  type: string
+                project_score:
+                  type: string
+                project_feedback:
+                  type: string
+                overall_summary:
+                  type: string

@@ -9,7 +9,7 @@ import (
 type CvEvaluatorServiceController struct {
 	Hello          controllers.IHelloController
 	UploadDocument controllers.IUploadDocumentController
-	Evaluate       controllers.IEvaluateController
+	Evaluate       controllers.IJobController
 }
 
 func initDI(app *bootstrap.Application) *CvEvaluatorServiceController {
@@ -34,7 +34,7 @@ func uploadDocument(_ *bootstrap.Application) controllers.IUploadDocumentControl
 	return uploadDocumentController
 }
 
-func evaluate(app *bootstrap.Application) controllers.IEvaluateController {
+func evaluate(app *bootstrap.Application) controllers.IJobController {
 	evaluateService := services.NewEvaluateServce(app.Worker, app.JobStore)
 	evaluateController := controllers.NewEvaluateController(evaluateService)
 	return evaluateController

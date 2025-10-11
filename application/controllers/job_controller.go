@@ -11,23 +11,24 @@ import (
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/models"
 )
 
-type IEvaluateController interface {
+type IJobController interface {
 	EnqueueJob(ctx context.Context, r *http.Request) api.WebResponse
+	ResultJob(ctx context.Context, r *http.Request, jobId string) api.WebResponse
 }
 
-type evaluateController struct {
-	evaluateService services.IEvaluateService
+type jobController struct {
+	jobService services.IJobService
 }
 
 func NewEvaluateController(
-	evaluateService services.IEvaluateService,
-) IEvaluateController {
-	return &evaluateController{
-		evaluateService: evaluateService,
+	jobService services.IJobService,
+) IJobController {
+	return &jobController{
+		jobService: jobService,
 	}
 }
 
-func (e *evaluateController) EnqueueJob(ctx context.Context, r *http.Request) api.WebResponse {
+func (e *jobController) EnqueueJob(ctx context.Context, r *http.Request) api.WebResponse {
 	request, err := helper.ParseJSONBodyRequest[models.EvaluateRequest](r)
 	if err != nil {
 		log.Println("error when parse body request")
@@ -40,6 +41,11 @@ func (e *evaluateController) EnqueueJob(ctx context.Context, r *http.Request) ap
 		return api.CreateWebResponse("validation error", http.StatusBadRequest, nil, err)
 	}
 
-	resp := e.evaluateService.EnqueueJob(ctx, request)
+	resp := e.jobService.EnqueueJob(ctx, request)
+	return resp
+}
+
+func (e *jobController) ResultJob(ctx context.Context, r *http.Request, jobId string) api.WebResponse {
+	resp := e.jobService.ResultJob(ctx, jobId)
 	return resp
 }

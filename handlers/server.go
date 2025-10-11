@@ -13,7 +13,7 @@ import (
 type Server struct {
 	HelloController          controllers.IHelloController
 	UploadDocumentController controllers.IUploadDocumentController
-	EvaluateController       controllers.IEvaluateController
+	EvaluateController       controllers.IJobController
 }
 
 func NewServer(app *bootstrap.Application) (*Server, error) {
@@ -51,5 +51,14 @@ func (s *Server) PostEvaluate(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	resp := s.EvaluateController.EnqueueJob(ctx, r)
+	api.WriteJSONResponse(w, resp.Status, resp)
+}
+
+func (s *Server) GetResultJobId(w http.ResponseWriter, r *http.Request, jobId string) {
+	ctx := r.Context()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	resp := s.EvaluateController.ResultJob(ctx, r, jobId)
 	api.WriteJSONResponse(w, resp.Status, resp)
 }

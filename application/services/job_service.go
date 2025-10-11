@@ -13,23 +13,24 @@ import (
 	"github.com/google/uuid"
 )
 
-type IEvaluateService interface {
+type IJobService interface {
 	EnqueueJob(context.Context, *models.EvaluateRequest) api.WebResponse
+	ResultJob(context.Context, string) api.WebResponse
 }
 
-type evaluateService struct {
+type jobService struct {
 	worker   worker.ICvEvaluatorWorker
 	jobStore jobstore.IJobStore
 }
 
-func NewEvaluateServce(worker worker.ICvEvaluatorWorker, jobStore jobstore.IJobStore) IEvaluateService {
-	return &evaluateService{
+func NewEvaluateServce(worker worker.ICvEvaluatorWorker, jobStore jobstore.IJobStore) IJobService {
+	return &jobService{
 		worker:   worker,
 		jobStore: jobStore,
 	}
 }
 
-func (e *evaluateService) EnqueueJob(ctx context.Context, request *models.EvaluateRequest) api.WebResponse {
+func (e *jobService) EnqueueJob(ctx context.Context, request *models.EvaluateRequest) api.WebResponse {
 	jobId := uuid.New().String()
 	jobItem := &models.JobItem{
 		Id:       jobId,
@@ -58,4 +59,13 @@ func (e *evaluateService) EnqueueJob(ctx context.Context, request *models.Evalua
 	}
 
 	return api.CreateWebResponse("Success to enqueue the job", http.StatusOK, resp, nil)
+}
+
+func (e *jobService) ResultJob(ctx context.Context, jobId string) api.WebResponse {
+	jobItem, ok := e.jobStore.Get(jobId)
+	if !ok {
+		return api.CreateWebResponse("Job Not Found", http.StatusNotFound, nil, nil)
+	}
+
+	return api.CreateWebResponse("Success", http.StatusOK, jobItem, nil)
 }

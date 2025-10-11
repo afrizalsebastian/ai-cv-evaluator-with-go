@@ -45,6 +45,7 @@ func NewApp() *Application {
 
 	// Assing Worker
 	aiWorker := worker.NewCvEvaluatorWorker(geminiCient, chromaClient, ingesDocument, 5)
+	go aiWorker.Start(ctx)
 	app.Worker = aiWorker
 
 	// Init Job Store

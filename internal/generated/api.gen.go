@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
@@ -21,6 +22,25 @@ type EvaluateBodyRequest struct {
 type EvaluateResponse struct {
 	Data *struct {
 		JobId *string `json:"job_id,omitempty"`
+	} `json:"data,omitempty"`
+	Message *string `json:"message,omitempty"`
+	Status  *int    `json:"status,omitempty"`
+}
+
+// ResultResponse defines model for ResultResponse.
+type ResultResponse struct {
+	Data *struct {
+		FileId   *string `json:"file_id,omitempty"`
+		Id       *string `json:"id,omitempty"`
+		JobTitle *string `json:"job_title,omitempty"`
+		Result   *struct {
+			CvFeedback      *string `json:"cv_feedback,omitempty"`
+			CvMatchRate     *string `json:"cv_match_rate,omitempty"`
+			OverallSummary  *string `json:"overall_summary,omitempty"`
+			ProjectFeedback *string `json:"project_feedback,omitempty"`
+			ProjectScore    *string `json:"project_score,omitempty"`
+		} `json:"result,omitempty"`
+		Status *string `json:"status,omitempty"`
 	} `json:"data,omitempty"`
 	Message *string `json:"message,omitempty"`
 	Status  *int    `json:"status,omitempty"`
@@ -52,6 +72,9 @@ type ServerInterface interface {
 	// Endpoint Testing
 	// (GET /hello)
 	GetHello(w http.ResponseWriter, r *http.Request)
+	// Get the job result
+	// (GET /result/{jobId})
+	GetResultJobId(w http.ResponseWriter, r *http.Request, jobId string)
 	// Upload File
 	// (POST /upload)
 	PostUpload(w http.ResponseWriter, r *http.Request)
@@ -87,6 +110,32 @@ func (siw *ServerInterfaceWrapper) GetHello(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHello(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// GetResultJobId operation middleware
+func (siw *ServerInterfaceWrapper) GetResultJobId(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "jobId" -------------
+	var jobId string
+
+	err = runtime.BindStyledParameter("simple", false, "jobId", mux.Vars(r)["jobId"], &jobId)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jobId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetResultJobId(w, r, jobId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -227,6 +276,8 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 	r.HandleFunc(options.BaseURL+"/evaluate", wrapper.PostEvaluate).Methods("POST")
 
 	r.HandleFunc(options.BaseURL+"/hello", wrapper.GetHello).Methods("GET")
+
+	r.HandleFunc(options.BaseURL+"/result/{jobId}", wrapper.GetResultJobId).Methods("GET")
 
 	r.HandleFunc(options.BaseURL+"/upload", wrapper.PostUpload).Methods("POST")
 
