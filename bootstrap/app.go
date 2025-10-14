@@ -13,9 +13,12 @@ import (
 )
 
 type Application struct {
-	ENV      *config.Config
-	Worker   worker.ICvEvaluatorWorker
-	JobStore jobstore.IJobStore
+	ENV          *config.Config
+	Worker       worker.ICvEvaluatorWorker
+	JobStore     jobstore.IJobStore
+	GeminiClient geminiclient.IGeminiClient
+	ChromaClient chromaclient.IChromaClient
+	Ingest       ingestdocument.IIngestFile
 }
 
 func NewApp() *Application {
@@ -33,15 +36,18 @@ func NewApp() *Application {
 	if err != nil {
 		log.Fatal("failed to init gemini client")
 	}
+	app.GeminiClient = geminiCient
 
 	// Init chroma
 	chromaClient, err := chromaclient.NewChromaClient(ctx, app.ENV.ChromaUrl)
 	if err != nil {
 		log.Fatalf("failed to init chroma client, %s", err.Error())
 	}
+	app.ChromaClient = chromaClient
 
 	// Init ingestDocument
 	ingesDocument := ingestdocument.NewIngestFile(chromaClient)
+	app.Ingest = ingesDocument
 
 	// Assing Worker
 	aiWorker := worker.NewCvEvaluatorWorker(geminiCient, chromaClient, ingesDocument, 5)

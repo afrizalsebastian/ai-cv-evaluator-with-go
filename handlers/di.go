@@ -6,14 +6,14 @@ import (
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/bootstrap"
 )
 
-type CvEvaluatorServiceController struct {
+type ServeController struct {
 	Hello          controllers.IHelloController
 	UploadDocument controllers.IUploadDocumentController
 	Evaluate       controllers.IJobController
 }
 
-func initDI(app *bootstrap.Application) *CvEvaluatorServiceController {
-	init := &CvEvaluatorServiceController{
+func initDI(app *bootstrap.Application) *ServeController {
+	init := &ServeController{
 		Hello:          hello(app),
 		UploadDocument: uploadDocument(app),
 		Evaluate:       evaluate(app),

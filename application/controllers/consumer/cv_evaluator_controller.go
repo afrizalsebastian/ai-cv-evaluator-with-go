@@ -8,12 +8,20 @@ import (
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/kafka"
 )
 
+type ICvEvaluatorControllerConsumer interface {
+	kafka.ConsumerController
+}
+
 type cvEvaluatorControllerConsumer struct {
 	cvEvaluatorServiceConsumer service_consumer.ICvEvaluatorConsumerService
 }
 
-func NewCvEvaluatorConsumer() *cvEvaluatorControllerConsumer {
-	return &cvEvaluatorControllerConsumer{}
+func NewCvEvaluatorConsumer(
+	cvEvaluatorServiceConsumer service_consumer.ICvEvaluatorConsumerService,
+) ICvEvaluatorControllerConsumer {
+	return &cvEvaluatorControllerConsumer{
+		cvEvaluatorServiceConsumer: cvEvaluatorServiceConsumer,
+	}
 }
 
 func (c *cvEvaluatorControllerConsumer) ProcessMessage(ctx context.Context, msg *kafka.Message) error {
