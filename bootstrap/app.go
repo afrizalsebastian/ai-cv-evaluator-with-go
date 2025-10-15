@@ -9,15 +9,11 @@ import (
 	geminiclient "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/gemini-client"
 	gomysql "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/go-mysql"
 	ingestdocument "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/ingest-document"
-	jobstore "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/job-store"
-	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/worker"
 	"gorm.io/gorm"
 )
 
 type Application struct {
 	ENV          *config.Config
-	Worker       worker.ICvEvaluatorWorker
-	JobStore     jobstore.IJobStore
 	GeminiClient geminiclient.IGeminiClient
 	ChromaClient chromaclient.IChromaClient
 	Ingest       ingestdocument.IIngestFile
@@ -65,15 +61,6 @@ func NewApp() *Application {
 	// Init ingestDocument
 	ingesDocument := ingestdocument.NewIngestFile(chromaClient)
 	app.Ingest = ingesDocument
-
-	// Assing Worker
-	aiWorker := worker.NewCvEvaluatorWorker(geminiCient, chromaClient, ingesDocument, 5)
-	go aiWorker.Start(ctx)
-	app.Worker = aiWorker
-
-	// Init Job Store
-	jobStore := jobstore.NewJobStore()
-	app.JobStore = jobStore
 
 	return app
 }

@@ -8,9 +8,10 @@ import (
 
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/api"
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/models"
-	jobstore "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/job-store"
-	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/worker"
+	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/models/dao"
+	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/repository"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type IJobService interface {
@@ -19,39 +20,31 @@ type IJobService interface {
 }
 
 type jobService struct {
-	worker   worker.ICvEvaluatorWorker
-	jobStore jobstore.IJobStore
+	cvEvaluatorJobRepository repository.ICvEvaluatorJobRepository
 }
 
-func NewEvaluateServce(worker worker.ICvEvaluatorWorker, jobStore jobstore.IJobStore) IJobService {
+func NewEvaluateServce(cvEvaluatorJobRepository repository.ICvEvaluatorJobRepository) IJobService {
 	return &jobService{
-		worker:   worker,
-		jobStore: jobStore,
+		cvEvaluatorJobRepository: cvEvaluatorJobRepository,
 	}
 }
 
 func (e *jobService) EnqueueJob(ctx context.Context, request *models.EvaluateRequest) api.WebResponse {
 	jobId := uuid.New().String()
-	jobItem := &models.JobItem{
-		Id:       jobId,
+	jobItem := &dao.CvEvaluatorJob{
+		JobId:    jobId,
 		JobTitle: request.JobTitle,
 		FileId:   request.FileId,
 		Status:   models.StatusQueued,
 	}
 
-	e.jobStore.Set(jobId, jobItem)
-
-	// enqueue to worker
-	// TODO: maybe can change to kafka publish
-	if err := e.worker.Enqueue(jobItem); err != nil {
-		log.Println("error to enqueue the job")
-
-		if errors.Is(err, worker.ErrQueueIsFull) {
-			return api.CreateWebResponse("queue is full", http.StatusBadRequest, nil, nil)
-		}
-
+	if err := e.cvEvaluatorJobRepository.CreateJobItem(ctx, jobItem); err != nil {
+		log.Println("failed to create job")
 		return api.CreateWebResponse("internal server error", http.StatusInternalServerError, nil, nil)
 	}
+
+	// TODO: publish to kafka
+	// go func()
 
 	resp := &models.EvaluateResponse{
 		JobId:  jobId,
@@ -62,10 +55,30 @@ func (e *jobService) EnqueueJob(ctx context.Context, request *models.EvaluateReq
 }
 
 func (e *jobService) ResultJob(ctx context.Context, jobId string) api.WebResponse {
-	jobItem, ok := e.jobStore.Get(jobId)
-	if !ok {
-		return api.CreateWebResponse("Job Not Found", http.StatusNotFound, nil, nil)
+	jobItem, err := e.cvEvaluatorJobRepository.GetByJobId(ctx, jobId)
+	if err != nil {
+		log.Println("error when get job")
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return api.CreateWebResponse("Job Not Found", http.StatusNotFound, nil, nil)
+		}
+
+		return api.CreateWebResponse("internal server error", http.StatusInternalServerError, nil, nil)
 	}
 
-	return api.CreateWebResponse("Success", http.StatusOK, jobItem, nil)
+	resp := &models.JobItem{
+		Id:       jobItem.JobId,
+		JobTitle: jobItem.JobTitle,
+		FileId:   jobItem.FileId,
+		Status:   jobItem.Status,
+		Result: models.JobResult{
+			CvMatchRate:     jobItem.CvMatchRate,
+			CvFeedback:      jobItem.CvFeedback,
+			ProjectScore:    jobItem.ProjectScore,
+			ProjectFeedback: jobItem.ProjectFeedback,
+			OverallSummary:  jobItem.OverallSummary,
+		},
+	}
+
+	return api.CreateWebResponse("Success", http.StatusOK, resp, nil)
 }

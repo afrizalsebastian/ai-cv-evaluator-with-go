@@ -4,6 +4,7 @@ import (
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/application/controllers"
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/application/services"
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/bootstrap"
+	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/repository"
 )
 
 type ServeController struct {
@@ -35,7 +36,8 @@ func uploadDocument(_ *bootstrap.Application) controllers.IUploadDocumentControl
 }
 
 func evaluate(app *bootstrap.Application) controllers.IJobController {
-	evaluateService := services.NewEvaluateServce(app.Worker, app.JobStore)
+	cvEvaluatorJobRepository := repository.NewCvEvaluatorJobRepository(app)
+	evaluateService := services.NewEvaluateServce(cvEvaluatorJobRepository)
 	evaluateController := controllers.NewEvaluateController(evaluateService)
 	return evaluateController
 }
