@@ -20,6 +20,11 @@ type Config struct {
 	GeminiApiKey string `mapstructure:"GEMINI_API_KEY"`
 	ChromaUrl    string `mapstructure:"CHROMA_URL"`
 	GeminiModel  string `mapstructure:"GEMINI_MODEl"`
+	DBUser       string `mapstructure:"DB_USER"`
+	DBPassword   string `mapstructure:"DB_PASSWORD"`
+	DBHost       string `mapstructure:"DB_HOST"`
+	DBPort       string `mapstructure:"DB_PORT"`
+	DBName       string `mapstructure:"DB_NAME"`
 }
 
 var appConfig Config

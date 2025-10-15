@@ -7,9 +7,11 @@ import (
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/config"
 	chromaclient "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/chroma-client"
 	geminiclient "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/gemini-client"
+	gomysql "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/go-mysql"
 	ingestdocument "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/ingest-document"
 	jobstore "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/job-store"
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/worker"
+	"gorm.io/gorm"
 )
 
 type Application struct {
@@ -19,6 +21,7 @@ type Application struct {
 	GeminiClient geminiclient.IGeminiClient
 	ChromaClient chromaclient.IChromaClient
 	Ingest       ingestdocument.IIngestFile
+	DB           *gorm.DB
 }
 
 func NewApp() *Application {
@@ -30,6 +33,20 @@ func NewApp() *Application {
 	}
 
 	app.ENV = config.Get()
+
+	// Init DB
+	dbConfig := &gomysql.MysqlConfig{
+		DBUser:     app.ENV.DBUser,
+		DBPassword: app.ENV.DBPassword,
+		DBHost:     app.ENV.DBHost,
+		DBPort:     app.ENV.DBPort,
+		DBName:     app.ENV.DBName,
+	}
+	db, err := gomysql.NewDatabaseConnection(dbConfig)
+	if err != nil {
+		log.Panic("failed to craete db connection")
+	}
+	app.DB = db
 
 	// Init Gemini Client
 	geminiCient, err := geminiclient.NewGeminiAiCLient(ctx, app.ENV.GeminiApiKey, app.ENV.GeminiModel)
