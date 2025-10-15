@@ -40,7 +40,7 @@ func NewApp() *Application {
 	}
 	db, err := gomysql.NewDatabaseConnection(dbConfig)
 	if err != nil {
-		log.Panic("failed to craete db connection")
+		log.Fatal("failed to create db connection")
 	}
 	app.DB = db
 
