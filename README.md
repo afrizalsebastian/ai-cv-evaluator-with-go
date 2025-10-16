@@ -35,3 +35,6 @@ And then run the app
 ```bash
 go run main.go serve
 ```
+
+```bash
+go run main.go consumer --topic=<consumer_topic>
