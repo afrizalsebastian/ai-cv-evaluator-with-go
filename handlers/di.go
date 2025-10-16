@@ -37,7 +37,8 @@ func uploadDocument(_ *bootstrap.Application) controllers.IUploadDocumentControl
 
 func evaluate(app *bootstrap.Application) controllers.IJobController {
 	cvEvaluatorJobRepository := repository.NewCvEvaluatorJobRepository(app)
-	evaluateService := services.NewEvaluateServce(cvEvaluatorJobRepository)
+	kafkaProducer := services.NewKafkaProducer(app.KafkaProducer)
+	evaluateService := services.NewEvaluateServce(cvEvaluatorJobRepository, kafkaProducer)
 	evaluateController := controllers.NewEvaluateController(evaluateService)
 	return evaluateController
 }

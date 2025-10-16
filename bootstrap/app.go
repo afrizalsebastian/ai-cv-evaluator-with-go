@@ -4,20 +4,23 @@ import (
 	"context"
 	"log"
 
+	"github.com/IBM/sarama"
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/config"
 	chromaclient "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/chroma-client"
 	geminiclient "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/gemini-client"
 	gomysql "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/go-mysql"
 	ingestdocument "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/ingest-document"
+	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/kafka"
 	"gorm.io/gorm"
 )
 
 type Application struct {
-	ENV          *config.Config
-	GeminiClient geminiclient.IGeminiClient
-	ChromaClient chromaclient.IChromaClient
-	Ingest       ingestdocument.IIngestFile
-	DB           *gorm.DB
+	ENV           *config.Config
+	GeminiClient  geminiclient.IGeminiClient
+	ChromaClient  chromaclient.IChromaClient
+	Ingest        ingestdocument.IIngestFile
+	DB            *gorm.DB
+	KafkaProducer *kafka.Producer
 }
 
 func NewApp() *Application {
@@ -61,6 +64,20 @@ func NewApp() *Application {
 	// Init ingestDocument
 	ingesDocument := ingestdocument.NewIngestFile(chromaClient)
 	app.Ingest = ingesDocument
+
+	// Init Kafka Producer client
+	kafkaProducer, err := kafka.NewProducer(
+		app.ENV.KafkaBroker,
+		func(c *sarama.Config) {
+			c.Net.SASL.Enable = app.ENV.KafkaSASLEnable
+			c.Net.SASL.Handshake = app.ENV.KafkaSASLHandshake
+			c.Net.TLS.Enable = app.ENV.KafkaTLS
+		},
+	)
+	if err != nil {
+		log.Println("Kafka producer failed to initialize")
+	}
+	app.KafkaProducer = kafkaProducer
 
 	return app
 }

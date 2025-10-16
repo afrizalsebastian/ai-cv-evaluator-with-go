@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/api"
+	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/config"
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/models"
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/models/dao"
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/repository"
@@ -21,11 +22,13 @@ type IJobService interface {
 
 type jobService struct {
 	cvEvaluatorJobRepository repository.ICvEvaluatorJobRepository
+	kafkaProducer            IKafkaProducer
 }
 
-func NewEvaluateServce(cvEvaluatorJobRepository repository.ICvEvaluatorJobRepository) IJobService {
+func NewEvaluateServce(cvEvaluatorJobRepository repository.ICvEvaluatorJobRepository, kafkaProducer IKafkaProducer) IJobService {
 	return &jobService{
 		cvEvaluatorJobRepository: cvEvaluatorJobRepository,
+		kafkaProducer:            kafkaProducer,
 	}
 }
 
@@ -43,8 +46,7 @@ func (e *jobService) EnqueueJob(ctx context.Context, request *models.EvaluateReq
 		return api.CreateWebResponse("internal server error", http.StatusInternalServerError, nil, nil)
 	}
 
-	// TODO: publish to kafka
-	// go func()
+	go e.kafkaProducer.PublishMessage(ctx, config.Get().KafkaCvEvaluatorTopic, nil, jobId)
 
 	resp := &models.EvaluateResponse{
 		JobId:  jobId,
