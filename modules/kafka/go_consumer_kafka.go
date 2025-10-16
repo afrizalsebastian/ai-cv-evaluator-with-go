@@ -99,6 +99,7 @@ func NewConsumer(opts ...ConsumerOption) (*Consumer, error) {
 func (c *Consumer) Run(ctx context.Context) error {
 	defer close(c.closeChan)
 
+	log.Println("Consumer with running with topic ", ctx.Value("consumer_topic"))
 	for {
 		select {
 		case <-ctx.Done():

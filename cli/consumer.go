@@ -52,6 +52,7 @@ func startConsumer(app *bootstrap.Application, cmd *cobra.Command) {
 			log.Fatal("Error connection consumer, err: ", err)
 		}
 
+		ctx = context.WithValue(ctx, "consumer_topic", consumerTopic)
 		err = consumer.Run(ctx)
 		if err != nil {
 			log.Fatal("Error running consumer, err: ", err)
