@@ -3,12 +3,14 @@ package service_consumer
 import (
 	"context"
 	"fmt"
+	"log"
 	"path"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/models"
+	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/models/dao"
+	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/domain/repository"
 	chromaclient "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/chroma-client"
 	geminiclient "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/gemini-client"
 	ingestdocument "github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/ingest-document"
@@ -19,20 +21,23 @@ type ICvEvaluatorConsumerService interface {
 }
 
 type cvEvaluatorConsumerService struct {
-	gemini geminiclient.IGeminiClient
-	chroma chromaclient.IChromaClient
-	ingest ingestdocument.IIngestFile
+	gemini      geminiclient.IGeminiClient
+	chroma      chromaclient.IChromaClient
+	ingest      ingestdocument.IIngestFile
+	cvEvaluator repository.ICvEvaluatorJobRepository
 }
 
 func NewCvEvaluatorConsumerService(
 	gemini geminiclient.IGeminiClient,
 	chroma chromaclient.IChromaClient,
 	ingest ingestdocument.IIngestFile,
+	cvEvaluator repository.ICvEvaluatorJobRepository,
 ) ICvEvaluatorConsumerService {
 	return &cvEvaluatorConsumerService{
-		gemini: gemini,
-		chroma: chroma,
-		ingest: ingest,
+		gemini:      gemini,
+		chroma:      chroma,
+		ingest:      ingest,
+		cvEvaluator: cvEvaluator,
 	}
 }
 
@@ -41,117 +46,104 @@ func (c *cvEvaluatorConsumerService) RunningJob(ctx context.Context, jobId strin
 	defer cancel()
 
 	// Todo: Get JOB ITEM FROM DB
-	job := &models.JobItem{
-		Id: jobId,
+	job, err := c.cvEvaluator.GetByJobId(ctx, jobId)
+	if err != nil {
+		log.Println("failed to get job item")
+		return err
 	}
 
+	// update to processing
 	job.Status = models.StatusProcessing
+	c.cvEvaluator.UpdateJobByJobId(ctx, jobId, job)
 
 	// extract text from file
 	extractedCv, err := c.ingest.ExtractTextFromPdf(path.Join("uploaded-file", job.FileId, "cv_file.pdf"))
 	if err != nil {
-		c.jobFailToProcess(job, err)
+		c.jobFailToProcess(ctx, job, err)
 		return err
 	}
 
 	extractedReport, err := c.ingest.ExtractTextFromPdf(path.Join("uploaded-file", job.FileId, "report_file.pdf"))
 	if err != nil {
-		c.jobFailToProcess(job, err)
+		c.jobFailToProcess(ctx, job, err)
 		return err
 	}
-
-	var evaluateWg sync.WaitGroup
-	errChan := make(chan error, 2)
-
-	evaluateWg.Add(2)
 
 	// Evaluate CV
-	go func() {
-		defer evaluateWg.Done()
-		jobDescription, err := c.chroma.Query(ctx, "job_description", job.JobTitle+" "+"job description", 5)
-		if err != nil {
-			errChan <- err
-			return
-		}
-		cvRubric, err := c.chroma.Query(ctx, "cv_rubric", job.JobTitle+" "+"cv rubric", 5)
-		if err != nil {
-			errChan <- err
-			return
-		}
-
-		cvEvaluatePrompt := c.buildCvEvaluatorPrompt(job.JobTitle, extractedCv, jobDescription, cvRubric)
-		cvGeminiResp, err := c.gemini.GenerateContent(ctx, job.JobTitle, cvEvaluatePrompt)
-		if err != nil {
-			errChan <- err
-			return
-		}
-		cvResult := strings.Split(cvGeminiResp, "\n---\n")
-		if len(cvResult) < 2 {
-			errChan <- fmt.Errorf("invalid response from gemini")
-			return
-		}
-		job.Result.CvMatchRate = cvResult[0]
-		job.Result.CvFeedback = cvResult[1]
-		fmt.Println("job with id " + job.Id + " have done processed cv")
-	}()
-
-	// Evaluate Report
-	go func() {
-		defer evaluateWg.Done()
-
-		caseStudyBrief, err := c.chroma.Query(ctx, "case_study_brief", job.JobTitle+" "+"case study brief", 5)
-		if err != nil {
-			errChan <- err
-			return
-		}
-
-		reportRubric, err := c.chroma.Query(ctx, "project_report_rubric", job.JobTitle+" "+"project report rubric", 5)
-		if err != nil {
-			errChan <- err
-			return
-		}
-
-		reportEvaluatePrompt := c.buildReportEvaluatorPrompt(job.JobTitle, extractedReport, caseStudyBrief, reportRubric)
-		reportGeminiResp, err := c.gemini.GenerateContent(ctx, job.JobTitle, reportEvaluatePrompt)
-		if err != nil {
-			errChan <- err
-			return
-		}
-		reportResult := strings.Split(reportGeminiResp, "\n---\n")
-		if len(reportResult) < 2 {
-			errChan <- fmt.Errorf("invalid response from gemini")
-			return
-		}
-		job.Result.ProjectScore = reportResult[0]
-		job.Result.ProjectFeedback = reportResult[1]
-		fmt.Println("job with id " + job.Id + " have done processed report")
-	}()
-
-	evaluateWg.Wait()
-	close(errChan)
-
-	for err := range errChan {
-		if err != nil {
-			c.jobFailToProcess(job, err)
-			return err
-		}
-	}
-
-	finalPrompt := c.buildFinalPrompt(job.Result.CvMatchRate, job.Result.CvFeedback, job.Result.ProjectScore, job.Result.ProjectFeedback)
-	overall, err := c.gemini.GenerateContent(ctx, job.JobTitle, finalPrompt)
+	jobDescription, err := c.chroma.Query(ctx, "job_description", job.JobTitle+" "+"job description", 5)
 	if err != nil {
-		c.jobFailToProcess(job, err)
+		c.jobFailToProcess(ctx, job, err)
 		return err
 	}
-	job.Result.OverallSummary = overall
+	cvRubric, err := c.chroma.Query(ctx, "cv_rubric", job.JobTitle+" "+"cv rubric", 5)
+	if err != nil {
+		c.jobFailToProcess(ctx, job, err)
+		return err
+	}
+
+	cvEvaluatePrompt := c.buildCvEvaluatorPrompt(job.JobTitle, extractedCv, jobDescription, cvRubric)
+	cvGeminiResp, err := c.gemini.GenerateContent(ctx, job.JobTitle, cvEvaluatePrompt)
+	if err != nil {
+		c.jobFailToProcess(ctx, job, err)
+		return err
+	}
+	cvResult := strings.Split(cvGeminiResp, "\n---\n")
+	if len(cvResult) < 2 {
+		err = fmt.Errorf("invalid response from gemini")
+		c.jobFailToProcess(ctx, job, err)
+		return err
+	}
+	job.CvMatchRate = cvResult[0]
+	job.CvFeedback = cvResult[1]
+	fmt.Println("job with id " + job.JobId + " have done processed cv")
+
+	// Evaluate Report
+	caseStudyBrief, err := c.chroma.Query(ctx, "case_study_brief", job.JobTitle+" "+"case study brief", 5)
+	if err != nil {
+		c.jobFailToProcess(ctx, job, err)
+		return err
+	}
+
+	reportRubric, err := c.chroma.Query(ctx, "project_report_rubric", job.JobTitle+" "+"project report rubric", 5)
+	if err != nil {
+		c.jobFailToProcess(ctx, job, err)
+		return err
+	}
+
+	reportEvaluatePrompt := c.buildReportEvaluatorPrompt(job.JobTitle, extractedReport, caseStudyBrief, reportRubric)
+	reportGeminiResp, err := c.gemini.GenerateContent(ctx, job.JobTitle, reportEvaluatePrompt)
+	if err != nil {
+		c.jobFailToProcess(ctx, job, err)
+		return err
+	}
+	reportResult := strings.Split(reportGeminiResp, "\n---\n")
+	if len(reportResult) < 2 {
+		err = fmt.Errorf("invalid response from gemini")
+		c.jobFailToProcess(ctx, job, err)
+		return err
+	}
+	job.ProjectScore = reportResult[0]
+	job.ProjectFeedback = reportResult[1]
+	fmt.Println("job with id " + job.JobId + " have done processed report")
+
+	// final
+	finalPrompt := c.buildFinalPrompt(job.CvMatchRate, job.CvFeedback, job.ProjectScore, job.ProjectFeedback)
+	overall, err := c.gemini.GenerateContent(ctx, job.JobTitle, finalPrompt)
+	if err != nil {
+		c.jobFailToProcess(ctx, job, err)
+		return err
+	}
+	job.OverallSummary = overall
 	job.Status = models.StatusCompleted
+	c.cvEvaluator.UpdateJobByJobId(ctx, jobId, job)
 
 	return nil
 }
 
-func (w *cvEvaluatorConsumerService) jobFailToProcess(job *models.JobItem, err error) {
-	fmt.Printf("job with id %s failed to process: %s\n", job.Id, err.Error())
+func (w *cvEvaluatorConsumerService) jobFailToProcess(ctx context.Context, job *dao.CvEvaluatorJob, err error) {
+	fmt.Printf("job with id %s failed to process: %s\n", job.JobId, err.Error())
 	job.Status = models.StatusFailed
+	_ = w.cvEvaluator.UpdateJobByJobId(ctx, job.JobId, job)
 }
 
 func (w *cvEvaluatorConsumerService) buildCvEvaluatorPrompt(jobTitle, extractedCv string, jobDescription, cvRubric []models.ChromaSearchResult) string {

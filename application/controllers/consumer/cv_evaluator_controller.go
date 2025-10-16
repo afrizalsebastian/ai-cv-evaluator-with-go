@@ -2,7 +2,7 @@ package controller_consumer
 
 import (
 	"context"
-	"log"
+	"encoding/json"
 
 	service_consumer "github.com/afrizalsebastian/ai-cv-evaluator-with-go/application/services/consumer"
 	"github.com/afrizalsebastian/ai-cv-evaluator-with-go/modules/kafka"
@@ -26,8 +26,7 @@ func NewCvEvaluatorConsumer(
 
 func (c *cvEvaluatorControllerConsumer) ProcessMessage(ctx context.Context, msg *kafka.Message) error {
 	request := msg.Value
-	jobId := string(request)
-
-	log.Println("running job with id", jobId)
+	var jobId string
+	_ = json.Unmarshal(request, &jobId)
 	return c.cvEvaluatorServiceConsumer.RunningJob(ctx, jobId)
 }

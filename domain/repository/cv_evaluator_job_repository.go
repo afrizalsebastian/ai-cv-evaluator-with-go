@@ -12,6 +12,7 @@ import (
 type ICvEvaluatorJobRepository interface {
 	CreateJobItem(ctx context.Context, job *dao.CvEvaluatorJob) error
 	GetByJobId(ctx context.Context, jobId string) (*dao.CvEvaluatorJob, error)
+	UpdateJobByJobId(ctx context.Context, jobId string, job *dao.CvEvaluatorJob) error
 }
 
 type cvEvaluatorJobRepository struct {
@@ -40,4 +41,12 @@ func (c *cvEvaluatorJobRepository) GetByJobId(ctx context.Context, jobId string)
 	}
 
 	return &jobItem, nil
+}
+
+func (c *cvEvaluatorJobRepository) UpdateJobByJobId(ctx context.Context, jobId string, job *dao.CvEvaluatorJob) error {
+	if err := c.db.WithContext(ctx).Where("job_id = ?", jobId).Save(job).Error; err != nil {
+		log.Println("failed to create job")
+		return err
+	}
+	return nil
 }
